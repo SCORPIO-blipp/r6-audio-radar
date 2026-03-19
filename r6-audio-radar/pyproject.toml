@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "r6-audio-radar"
+version = "0.1.0"
+description = "Real-time footstep detection and direction plotting for Rainbow Six Siege using WASAPI loopback audio and ML models."
+authors = [
+  { name = "Aidan Joyce" }
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.11",
+  "matplotlib>=3.8",
+  "librosa>=0.10",
+  "scikit-learn>=1.4",
+  "soundfile>=0.12",
+  "pyaudiowpatch>=0.3.0",
+  "sv-ttk",
+]
+
+[project.optional-dependencies]
+train = ["pandas"]
+
+[project.scripts]
+r6-audio-radar = "r6_audio_radar.gui:main"
+
+[tool.setuptools.packages.find]
+include = ["r6_audio_radar*"]
+
+[tool.setuptools.package-data]
+r6_audio_radar = ["models/*.pkl"]
