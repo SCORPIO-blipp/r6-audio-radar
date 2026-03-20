@@ -1,4 +1,4 @@
-"""Tkinter GUI launcher for the R6 Audio Radar."""
+"""Tkinter GUI launcher for the Radar"""
 
 import os
 import queue
@@ -47,9 +47,9 @@ class AudioGUI:
 
         self.populate_loopback_devices()
 
-        # =========================
-        # Preferences (Checkboxes)
-        # =========================
+        
+        # Selectable Preferences 
+        
         ttk.Label(main_frame, text="Preferences:").pack(anchor="w")
 
         self.pref1 = tk.BooleanVar()
@@ -83,9 +83,9 @@ class AudioGUI:
         # Monitor process status
         self.monitor_process()
 
-    # ---------------------------------------------------------
-    # Device enumeration
-    # ---------------------------------------------------------
+    
+    # Device population and finding
+    
 
     def populate_loopback_devices(self):
         """Populate loopback/stereo-mix devices and auto-select the active WASAPI loopback."""
