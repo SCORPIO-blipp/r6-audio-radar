@@ -6,11 +6,13 @@ import time
 import queue
 import threading
 
+import signal
+
 import numpy as np
-import scipy.signal as signal
+import scipy.signal as spsig
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
-import signal as sys_signal
+
 
 # Audio input backend: use WASAPI loopback via pyaudiowpatch (required).
 try:
@@ -84,26 +86,26 @@ class SOSFilterState:
 
     def __init__(self, sos):
         self.sos = sos
-        self.zi = signal.sosfilt_zi(sos)
+        self.zi = spsig.sosfilt_zi(sos)
 
     def apply(self, x):
-        y, self.zi = signal.sosfilt(self.sos, x, zi=self.zi)
+        y, self.zi = spsig.sosfilt(self.sos, x, zi=self.zi)
         return y
 
 
 def create_bandpass(fs, low=150, high=450):
     """Create a bandpass SOS filter for low/mid footstep 'thud' energy."""
-    return signal.butter(4, [low / (fs / 2), high / (fs / 2)], btype="band", output="sos")
+    return spsig.butter(4, [low / (fs / 2), high / (fs / 2)], btype="band", output="sos")
 
 
 def create_highband(fs, low=2500, high=4000):
     """Create a bandpass SOS filter for high-frequency footstep surface sounds."""
-    return signal.butter(4, [low / (fs / 2), high / (fs / 2)], btype="band", output="sos")
+    return spsig.butter(4, [low / (fs / 2), high / (fs / 2)], btype="band", output="sos")
 
 
 def create_lfe_filter(fs):
     """Create a low-frequency extension SOS filter."""
-    return signal.butter(2, 120 / (fs / 2), btype="low", output="sos")
+    return spsig.butter(2, 120 / (fs / 2), btype="low", output="sos")
 
 
 def apply_filter(chunk, filter_state):
@@ -238,9 +240,7 @@ def main():
         bandpass_low = SOSFilterState(create_bandpass(rate))
         # High band (glass/marble, etc): ~2500-4000Hz
         bandpass_high = SOSFilterState(create_highband(rate))
-        # Separate LFE filter for direction estimation so filter state
-        # isn't corrupted by shared use across detection + direction paths
-        lfe_filter = SOSFilterState(create_lfe_filter(rate))
+
         lfe_filter_dir = SOSFilterState(create_lfe_filter(rate))
 
         print(f"Running at {rate}Hz, {channels}ch")
@@ -286,7 +286,7 @@ def main():
             stop_event.set()
             print("\nStopping...")
 
-        sys_signal.signal(sys_signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
 
         def audio_worker():
             while not stop_event.is_set():
