@@ -33,9 +33,9 @@ class AudioGUI:
         main_frame.pack(fill="both", expand=True)
 
         # =========================
-        # Loopback Devices Dropdown
+        # Loopback Devices Dropdown this is a placeholder, the running.py program currently uses get_current_wasapi_loopback to determine device, as it is easier to do that then select a device especially from a user perspective
         # =========================
-        ttk.Label(main_frame, text="Select Loopback Device:").pack(anchor="w")
+        ttk.Label(main_frame, text="Select Loopback Device (this currently has no effect):").pack(anchor="w")
 
         self.device_var = tk.StringVar()
         self.device_dropdown = ttk.Combobox(
@@ -57,13 +57,13 @@ class AudioGUI:
         self.pref3 = tk.BooleanVar()
         self.pref4 = tk.BooleanVar()
 
-        ttk.Checkbutton(main_frame, text="Enable Noise Reduction", variable=self.pref1).pack(
+        ttk.Checkbutton(main_frame, text="Enable Noise Reduction (PLACEHOLDER)", variable=self.pref1).pack(
             anchor="w"
         )
-        ttk.Checkbutton(main_frame, text="Auto Gain Control", variable=self.pref2).pack(
+        ttk.Checkbutton(main_frame, text="Auto Gain Control (PLACEHOLDER)", variable=self.pref2).pack(
             anchor="w"
         )
-        ttk.Checkbutton(main_frame, text="Low Latency Mode", variable=self.pref3).pack(
+        ttk.Checkbutton(main_frame, text="Low Latency Mode (PLACEHOLDER)", variable=self.pref3).pack(
             anchor="w"
         )
         ttk.Checkbutton(
