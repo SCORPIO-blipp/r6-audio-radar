@@ -221,7 +221,19 @@ def classify_chunk(chunk, rate):
 # =========================
 # MAIN
 # =========================
+def format_detection(cls, angle, combined_energy):
+    use_model = cls is not None and cls.get("event") == "footsteps"
+    conf = float(cls.get("confidence", 0.0)) if use_model else min(1.0, combined_energy / 0.05)
+    elev = cls.get("elevation", "?") if use_model else "-"
+    mat = cls.get("material", "?") if use_model else "-"
+    source = "model" if use_model else "energy"
 
+    dir_str = f"{'R' if angle > 5 else 'L' if angle < -5 else 'F'} {abs(angle):>3.0f}°"
+    bar = "█" * int(conf * 8) + "░" * (8 - int(conf * 8))
+    ts = time.strftime("%H:%M:%S")
+
+    return f"[{ts}]  {source:<6}  {dir_str}   {mat} / {elev:<8}  {bar}  {conf:.0%}"
+    
 def main():
     try:
         # WASAPI loopback is required to capture system (game) audio.
@@ -326,16 +338,7 @@ def main():
                 with detections_lock:
                     detections.append({"pos": vector, "size": size, "time": now})
 
-                if cls is not None and cls.get("event") == "footsteps":
-                    print(
-                        f"Footstep detected (model): {cls}, "
-                        f"direction={angle:.1f}\u00b0, size={size:.0f}"
-                    )
-                else:
-                    print(
-                        f"Footstep detected (energy): energy={combined_energy:.5f}, "
-                        f"direction={angle:.1f}\u00b0, size={size:.0f}"
-                    )
+                print(format_detection(cls, angle, combined_energy))
 
         worker = threading.Thread(target=audio_worker, daemon=True)
         worker.start()
