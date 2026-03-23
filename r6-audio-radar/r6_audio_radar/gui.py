@@ -80,6 +80,8 @@ class AudioGUI:
             anchor="w"
         )
 
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        
         # Monitor process status
         self.monitor_process()
 
@@ -175,6 +177,10 @@ class AudioGUI:
             self.process = None
         self.root.after(500, self.monitor_process)
 
+    def _on_close(self):
+        self.stop_running_block()
+        self.root.destroy()
+
     # ---------------------------------------------------------
     # Raw output console window
     # ---------------------------------------------------------
@@ -219,8 +225,13 @@ class AudioGUI:
 
     def _stop_raw_reader(self):
         self.raw_stop_event.set()
+        if self.process and self.process.stdout:
+            try:
+                self.process.stdout.close()
+            except Exception:
+                pass
         if self.raw_thread is not None:
-            self.raw_thread.join(timeout=0.1)
+            self.raw_thread.join(timeout=1)
             self.raw_thread = None
 
     def _read_raw_output(self):
