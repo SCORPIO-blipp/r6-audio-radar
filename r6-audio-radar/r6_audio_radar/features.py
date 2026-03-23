@@ -34,7 +34,7 @@ def extract_features(audio, sr=22050):
 
     # Ensure enough length for spectral features and avoid zero-length pad error
     if y.shape[0] < 2048:
-        y = librosa.util.fix_length(y, 2048)
+        y = librosa.util.fix_length(y, size=2048)
 
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)
     spec_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
