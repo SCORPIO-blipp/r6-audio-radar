@@ -1,17 +1,17 @@
 # R6 Audio Radar
 
-Real-time footstep detection and direction plotting for **Rainbow Six Siege** using Windows WASAPI loopback audio and trained ML models.
+Realtime footstep detection and direction plotting for **Rainbow Six Siege** using Windows WASAPI loopback audio and trained ML models.
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
 
 ## How it works
 
-1. **WASAPI loopback capture** — records the game audio you hear (no mic needed).
+1. **WASAPI loopback capture** - records the game audio you hear (no mic needed).
 2. **Dual-band filtering** — isolates footstep energy in the 150–450 Hz (thud) and 2500–4000 Hz (surface) bands.
 3. **ML classification** — an `MLPClassifier` predicts event type, elevation, and surface material.
-4. **Direction estimation** — a stereo → 5.1 Pro-Logic upmix estimates the horizontal angle of each footstep.
-5. **Radar plot** — detections appear as dots on a live polar radar that decay over time.
+4. **Direction estimation** — a stereo → 5.1 surround upmix estimates the horizontal angle of each footstep.
+5. **Radar plot** — detections appear as dots on a live radar that decay over time.
 
 ## Repository layout
 
@@ -23,8 +23,8 @@ r6-audio-radar/
 ├── .gitignore
 └── r6_audio_radar/             # Python package
     ├── __init__.py
-    ├── gui.py                  # Tkinter GUI launcher
-    ├── runner.py               # Live audio → filter → classify → plot
+    ├── gui.py                  # Tkinter GUI launcher (currently used as an entry point not much else)
+    ├── runner.py               # Live audio --> filter --> classify --> plot
     ├── classify.py             # Load models & classify clips/arrays
     ├── features.py             # MFCC + spectral feature extraction
     ├── train.py                # Train the ML models from labelled data
@@ -72,8 +72,8 @@ Prepare a `labels.csv` with columns `filename`, `event`, `elevation`, `material`
 ```bash
 pip install pandas            # only needed for training
 python -m r6_audio_radar.train \
-    --labels path/to/labels.csv \
-    --audio-dir path/to/audio/
+    --labels path/to/labels.csv (included with some clips) \
+    --audio-dir PATH TO AUDIO
 ```
 
 The six `.pkl` files will be written to `r6_audio_radar/models/`.
