@@ -12,6 +12,7 @@ import numpy as np
 import scipy.signal as spsig
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
+import mplcyberpunk
 
 
 # Audio input backend: use WASAPI loopback via pyaudiowpatch (required).
@@ -269,7 +270,7 @@ def main():
         # =========================
         # PLOT SETUP
         # =========================
-
+        plt.style.use("cyberpunk")
         plt.ion()
         fig, ax = plt.subplots()
         # If the user closes the plot window, stop the audio loop as well
