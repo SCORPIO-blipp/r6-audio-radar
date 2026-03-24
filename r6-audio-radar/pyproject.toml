@@ -21,7 +21,8 @@ dependencies = [
   "scikit-learn>=1.4",
   "soundfile>=0.12",
   "pyaudiowpatch>=0.3.0",
-  "sv-ttk>=0.1",
+  "sv-ttk",
+  "mplcyberpunk",
 ]
 
 [project.optional-dependencies]
