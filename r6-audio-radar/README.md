@@ -44,6 +44,7 @@ r6-audio-radar/
 | **librosa, soundfile** | Audio loading & MFCC extraction |
 | **scikit-learn** | MLP classifier |
 | **sv-ttk** | Dark-themed Tkinter widgets |
+| **mplcyberpunk** | Cool Theme for MPL |
 
 ## Quick start
 
