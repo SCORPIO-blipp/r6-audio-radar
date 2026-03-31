@@ -50,7 +50,7 @@ r6-audio-radar/
 
 ```bash
 # Clone the repo
-git clone https://github.com/<your-username>/r6-audio-radar.git
+git clone https://github.com/SCORPIO-blipp/r6-audio-radar.git
 cd r6-audio-radar
 
 # Create a virtual environment (recommended)
