@@ -1,4 +1,4 @@
-# Place your trained .pkl model files here
+# Place your trained .pkl model files here some will be included as the files given for training were corrupted and train.py is buggy
 
 This directory holds the serialised scikit-learn models and label-encoders
 that the radar uses at runtime:
