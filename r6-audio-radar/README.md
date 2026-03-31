@@ -47,7 +47,7 @@ r6-audio-radar/
 | **mplcyberpunk** | Cool Theme for MPL |
 
 ## Quick start
-
+IMPORTANT NOTE -- make sure you have git for windows installed
 ```bash
 # Clone the repo
 git clone https://github.com/SCORPIO-blipp/r6-audio-radar.git
