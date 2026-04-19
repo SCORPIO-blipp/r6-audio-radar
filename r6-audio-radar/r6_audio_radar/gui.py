@@ -16,7 +16,7 @@ class AudioGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("R6 Audio Radar")
-        self.root.geometry("600x300")
+        self.root.geometry("600x600")
         self.root.resizable(False, False)
         self.process = None
         self.raw_window = None
@@ -57,6 +57,8 @@ class AudioGUI:
         self.pref3 = tk.BooleanVar()
         self.pref4 = tk.BooleanVar()
 
+        self.energy_threshold = tk.DoubleVar(value=0.002)
+
         ttk.Checkbutton(main_frame, text="Enable Noise Reduction (PLACEHOLDER)", variable=self.pref1).pack(
             anchor="w"
         )
@@ -73,11 +75,27 @@ class AudioGUI:
             command=self._on_raw_toggle,
         ).pack(anchor="w")
 
-        ttk.Button(main_frame, compound="center", text="START", command=self.start_running_block).pack(
-            anchor="w", pady=(10, 5)
+        threshold_frame = ttk.Frame(main_frame)
+        threshold_frame.pack(fill="x", pady=(10, 5))
+        ttk.Label(threshold_frame, text="Energy threshold:").grid(row=0, column=0, sticky="w")
+        ttk.Label(threshold_frame, textvariable=self.energy_threshold).grid(row=0, column=1, sticky="e")
+        ttk.Scale(
+            threshold_frame,
+            from_=0.0005,
+            to=0.01,
+            orient="horizontal",
+            variable=self.energy_threshold,
+            command=lambda value: self.energy_threshold.set(float(value)),
+        ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(2, 0))
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill="x", pady=(10, 5))
+
+        ttk.Button(button_frame, compound="center", text="START", command=self.start_running_block).pack(
+            side="left", padx=(0, 10)
         )
-        ttk.Button(main_frame, compound="center", text="STOP", command=self.stop_running_block).pack(
-            anchor="w"
+        ttk.Button(button_frame, compound="center", text="STOP", command=self.stop_running_block).pack(
+            side="left"
         )
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -102,7 +120,7 @@ class AudioGUI:
 
                 if any(
                     kw in dev_name
-                    for kw in ["loopback", "stereo mix", "what u hear", "wave out mix"]
+                    for kw in ["WASAPI"]
                 ):
                     if dev["max_input_channels"] > 0:
                         loopback_devices.append(f"{i}: {dev['name']}")
@@ -138,24 +156,47 @@ class AudioGUI:
 
     def start_running_block(self):
         """Launch the runner as a subprocess."""
-        if self.process is None or self.process.poll() is not None:
+        if self.process is not None and self.process.poll() is None:
+            print("Runner already running")
+            return
+
+        self.raw_stop_event.clear()
+
+        runner_cmd = [sys.executable, "-m", "r6_audio_radar.runner"]
+        env = os.environ.copy()
+        env["R6_AUDIO_RADAR_ENERGY_THRESHOLD"] = str(self.energy_threshold.get())
+        try:
+            self.process = subprocess.Popen(
+                runner_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
+            print(f"Started runner subprocess: {runner_cmd}")
+        except Exception as e:
+            print(f"Failed to launch runner module, trying file path fallback: {e}")
+            runner_script = os.path.join(os.path.dirname(__file__), "runner.py")
             try:
-                self.raw_stop_event.clear()
                 self.process = subprocess.Popen(
-                    [sys.executable, "-m", "r6_audio_radar.runner"],
+                    [sys.executable, runner_script],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
                     bufsize=1,
+                    env=env,
                 )
+                print(f"Started runner subprocess by script: {runner_script}")
+            except Exception as e2:
+                print(f"Error running runner via script fallback: {e2}")
+                self.process = None
+                return
 
-                self._start_raw_reader()
+        self._start_raw_reader()
 
-                if self.pref4.get():
-                    self._open_raw_window()
-
-            except Exception as e:
-                print(f"Error running runner: {e}")
+        if self.pref4.get():
+            self._open_raw_window()
 
     def stop_running_block(self):
         """Stop the runner subprocess."""
@@ -241,6 +282,13 @@ class AudioGUI:
             for line in self.process.stdout:
                 if self.raw_stop_event.is_set():
                     break
+
+                # Always print runner output to the main console for easier debugging
+                try:
+                    print(line, end="")
+                except Exception:
+                    pass
+
                 try:
                     self.raw_queue.put_nowait(line)
                 except queue.Full:
