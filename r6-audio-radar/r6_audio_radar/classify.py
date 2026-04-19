@@ -48,17 +48,24 @@ def load_models(model_dir=None):
 
 def _classify_features(feats):
     """Classify based on precomputed feature vector."""
-    event = str(enc_event.inverse_transform(event_model.predict(feats))[0])
+    event_proba = event_model.predict_proba(feats)[0]
+    event_classes = enc_event.inverse_transform(range(len(event_proba)))
+    best_idx = event_proba.argmax()
+    event = str(event_classes[best_idx])
+    event_conf = float(event_proba[best_idx])
+
     elev = str(enc_elev.inverse_transform(elev_model.predict(feats))[0])
     material = str(enc_material.inverse_transform(material_model.predict(feats))[0])
 
-    event_conf = event_model.predict_proba(feats).max()
+    # Include full per-class probabilities so callers can suppress false positives
+    all_probs = {str(event_classes[i]): float(event_proba[i]) for i in range(len(event_proba))}
 
     return {
         "event": event,
-        "confidence": float(event_conf),
+        "confidence": event_conf,
         "elevation": elev,
         "material": material,
+        "all_probs": all_probs,
     }
 
 
