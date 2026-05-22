@@ -1,0 +1,2 @@
+[console_scripts]
+r6-audio-radar = r6_audio_radar.gui:main

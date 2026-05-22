@@ -10,7 +10,7 @@ import pandas as pd
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import LabelEncoder
 
-from r6_audio_radar.features import extract_features
+from universal_game_audio_radar.features import extract_features
 
 _DEFAULT_MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
 
@@ -129,7 +129,7 @@ def train(labels_csv, audio_dir, output_dir=None, segment_duration=0.1, segment_
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train R6 Audio Radar ML models.")
+    parser = argparse.ArgumentParser(description="Train Universal Game Audio Radar ML models.")
     parser.add_argument(
         "--labels",
         required=True,

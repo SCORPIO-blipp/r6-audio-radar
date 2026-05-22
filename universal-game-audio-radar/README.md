@@ -1,6 +1,6 @@
-# R6 Audio Radar
+# Universal Game Audio Radar
 
-Realtime footstep detection and direction plotting for **Rainbow Six Siege** using Windows WASAPI loopback audio and trained ML models.
+Realtime footstep detection and direction plotting using Windows WASAPI loopback audio and trained ML models.
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
@@ -17,18 +17,18 @@ Realtime footstep detection and direction plotting for **Rainbow Six Siege** usi
 
 ```
 r6-audio-radar/
-├── pyproject.toml              # Package metadata & dependencies
+├── pyproject.toml                      # Package metadata & dependencies
 ├── README.md
 ├── LICENSE
 ├── .gitignore
-└── r6_audio_radar/             # Python package
+└── universal_game_audio_radar/         # Python package
     ├── __init__.py
-    ├── gui.py                  # Tkinter GUI launcher (currently used as an entry point not much else)
-    ├── runner.py               # Live audio --> filter --> classify --> plot
-    ├── classify.py             # Load models & classify clips/arrays
-    ├── features.py             # MFCC + spectral feature extraction
-    ├── train.py                # Train the ML models from labelled data
-    └── models/                 # Trained .pkl files (see below)
+    ├── gui.py                          # Tkinter GUI launcher
+    ├── runner.py                       # Live audio --> filter --> classify --> plot
+    ├── classify.py                     # Load models & classify clips/arrays
+    ├── features.py                     # MFCC + spectral feature extraction
+    ├── train.py                        # Train the ML models from labelled data
+    └── models/                         # Trained .pkl files (see below)
         └── README.md
 ```
 
@@ -50,7 +50,7 @@ r6-audio-radar/
 IMPORTANT NOTE -- make sure you have git for windows installed
 ```bash
 # Clone the repo
-git clone https://github.com/SCORPIO-blipp/r6-audio-radar.git
+git clone https://github.com/SCORPIO-blipp/universal-game-audio-radar.git
 cd r6-audio-radar
 
 # Create a virtual environment (recommended)
@@ -61,10 +61,10 @@ python -m venv .venv
 pip install -e .
 
 # Launch the GUI
-r6-audio-radar
+universal-game-audio-radar
 ```
 
-> **Note:** You must place trained model files (`.pkl`) in `r6_audio_radar/models/` before the ML classifier will work.  Without them the radar still runs using energy-based detection as a fallback.
+> **Note:** You must place trained model files (`.pkl`) in `universal_game_audio_radar/models/` before the ML classifier will work.  Without them the radar still runs using energy-based detection as a fallback.
 
 ## Training models
 
@@ -72,25 +72,25 @@ Prepare a `labels.csv` with columns `filename`, `event`, `elevation`, `material`
 
 ```bash
 pip install pandas            # only needed for training
-python -m r6_audio_radar.train \
-    --labels path/to/labels.csv (included with some clips) \
-    --audio-dir PATH TO AUDIO
+python -m universal_game_audio_radar.train \
+    --labels path/to/labels.csv \
+    --audio-dir PATH/TO/AUDIO
 ```
 
-The six `.pkl` files will be written to `r6_audio_radar/models/`.
+The six `.pkl` files will be written to `universal_game_audio_radar/models/`.
 
 ## Running without the GUI
 
 You can launch the radar plot directly:
 
 ```bash
-python -m r6_audio_radar.runner
+python -m universal_game_audio_radar.runner
 ```
 
 Or classify a single audio clip:
 
 ```bash
-python -m r6_audio_radar.classify path/to/clip.wav
+python -m universal_game_audio_radar.classify path/to/clip.wav
 ```
 
 ## License

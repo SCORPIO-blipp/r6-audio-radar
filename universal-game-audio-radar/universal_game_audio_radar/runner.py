@@ -11,7 +11,7 @@ import signal
 import numpy as np
 import scipy.signal as spsig
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
+from matplotlib.patches import Wedge
 import mplcyberpunk
 import librosa
 
@@ -88,6 +88,59 @@ class AudioInput:
                 self.stream.close()
             except Exception:
                 pass
+        if self.p is not None:
+            try:
+                self.p.terminate()
+            except Exception:
+                pass
+
+
+# =========================
+# AUDIO OUTPUT (EQ / frequency boost)
+# =========================
+
+class AudioOutput:
+    """Wraps a pyaudio output stream for the EQ frequency-boost feature."""
+
+    def __init__(self, rate, channels, device_index=None):
+        self.rate = rate
+        self.channels = channels
+        self.device_index = device_index
+        self.stream = None
+        self.p = pyaudio.PyAudio()
+
+    def start(self):
+        try:
+            self.stream = self.p.open(
+                format=pyaudio.paFloat32,
+                channels=self.channels,
+                rate=self.rate,
+                output=True,
+                output_device_index=self.device_index,
+                frames_per_buffer=8192,
+            )
+            print(f"Runner: EQ output stream opened (device={self.device_index}, "
+                  f"rate={self.rate}, channels={self.channels})")
+        except Exception as e:
+            print(f"Runner: EQ output stream failed to open: {e}")
+            self.stream = None
+
+    def write(self, data: np.ndarray):
+        if self.stream is None:
+            return
+        try:
+            self.stream.write(data.astype(np.float32).tobytes())
+        except Exception:
+            pass
+
+    def stop(self):
+        if self.stream is not None:
+            try:
+                self.stream.stop_stream()
+                self.stream.close()
+            except Exception:
+                pass
+            self.stream = None
         if self.p is not None:
             try:
                 self.p.terminate()
@@ -201,11 +254,11 @@ def estimate_direction(chunk, lfe_filter):
 # CLASSIFICATION HELPER
 # =========================
 
-# Models live inside the package: r6_audio_radar/models/
+# Models live inside the package: universal_game_audio_radar/models/
 _MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
 
 try:
-    from r6_audio_radar import classify as classify_mod
+    from universal_game_audio_radar import classify as classify_mod
 except Exception as e:
     print(f"Warning: could not import classify module: {e}")
     classify_mod = None
@@ -336,15 +389,21 @@ def main():
                 return default
 
         # Detection tuning
-        ENERGY_THRESHOLD = _env_float("R6_AUDIO_RADAR_ENERGY_THRESHOLD", 0.00005)
-        LOW_ENERGY_THRESHOLD = _env_float("R6_AUDIO_RADAR_LOW_ENERGY_THRESHOLD", 0.00005)
-        HIGH_ENERGY_THRESHOLD = _env_float("R6_AUDIO_RADAR_HIGH_ENERGY_THRESHOLD", 0.0001)
-        LOW_ENERGY_WEIGHT = _env_float("R6_AUDIO_RADAR_LOW_ENERGY_WEIGHT", 1.4)
-        HIGH_ENERGY_WEIGHT = _env_float("R6_AUDIO_RADAR_HIGH_ENERGY_WEIGHT", 0.7)
-        MODEL_CONFIDENCE_THRESHOLD = _env_float("R6_AUDIO_RADAR_MODEL_CONFIDENCE_THRESHOLD", 0.3)
+        ENERGY_THRESHOLD = _env_float("UGAR_ENERGY_THRESHOLD", 0.00005)
+        LOW_ENERGY_THRESHOLD = _env_float("UGAR_LOW_ENERGY_THRESHOLD", 0.00005)
+        HIGH_ENERGY_THRESHOLD = _env_float("UGAR_HIGH_ENERGY_THRESHOLD", 0.0001)
+        LOW_ENERGY_WEIGHT = _env_float("UGAR_LOW_ENERGY_WEIGHT", 1.4)
+        HIGH_ENERGY_WEIGHT = _env_float("UGAR_HIGH_ENERGY_WEIGHT", 0.7)
+        MODEL_CONFIDENCE_THRESHOLD = _env_float("UGAR_MODEL_CONFIDENCE_THRESHOLD", 0.3)
 
-        SEGMENT_DURATION = _env_float("R6_AUDIO_RADAR_SEGMENT_DURATION", 0.5)
-        SEGMENT_HOP = _env_float("R6_AUDIO_RADAR_SEGMENT_HOP", SEGMENT_DURATION)
+        SEGMENT_DURATION = _env_float("UGAR_SEGMENT_DURATION", 0.5)
+        SEGMENT_HOP = _env_float("UGAR_SEGMENT_HOP", SEGMENT_DURATION)
+
+        # EQ / frequency-boost settings
+        EQ_ENABLED = os.getenv("UGAR_EQ_ENABLED", "0") == "1"
+        EQ_BOOST = _env_float("UGAR_EQ_BOOST", 3.0)
+        _eq_dev_str = os.getenv("UGAR_EQ_OUTPUT_DEVICE", "")
+        eq_device_index = int(_eq_dev_str) if _eq_dev_str.isdigit() else None
 
         segment_samples = max(1, int(round(rate * SEGMENT_DURATION)))
         hop_samples = max(1, int(round(rate * SEGMENT_HOP)))
@@ -393,13 +452,26 @@ def main():
         # Player marker at origin
         ax.plot(0, 0, marker="^", markersize=10, color="white")
 
-        scatter = ax.scatter([], [], c="red", alpha=0.6)
+        scatter = ax.scatter([], [], c="cyan", alpha=0.8)
 
         def signal_handler(sig, frame):
             stop_event.set()
             print("\nStopping...")
 
         signal.signal(signal.SIGINT, signal_handler)
+
+        # EQ audio output (runs only if UGAR_EQ_ENABLED=1)
+        audio_out = None
+        eq_bandpass = None
+        if EQ_ENABLED:
+            audio_out = AudioOutput(rate, channels, eq_device_index)
+            audio_out.start()
+            eq_bandpass = SOSFilterState(create_bandpass(rate))
+
+        # Radar flash-patch queue and state (produced by classifier, consumed by main loop)
+        flash_queue = queue.Queue()
+        flash_patches = []   # list of {"patch": Wedge, "alpha": float}
+        elev_annotations = []  # list of matplotlib annotation objects
 
         # =========================
         # AUDIO WORKER
@@ -421,6 +493,19 @@ def main():
                     time.sleep(0.001)
                     continue
                 idle_loops = 0
+
+                # EQ: boost footstep frequencies and write to output device immediately
+                # (chunk-level processing keeps latency low, ~186 ms at 44100 Hz)
+                if EQ_ENABLED and audio_out is not None and eq_bandpass is not None:
+                    mono_eq = np.mean(chunk, axis=1) if chunk.shape[1] > 1 else chunk[:, 0]
+                    low_band = eq_bandpass.apply(mono_eq.copy())
+                    boosted_mono = np.clip(mono_eq + low_band * EQ_BOOST, -1.0, 1.0)
+                    boosted = (
+                        np.column_stack([boosted_mono] * channels)
+                        if channels >= 2
+                        else boosted_mono.reshape(-1, 1)
+                    )
+                    audio_out.write(boosted)
 
                 buffer_parts.append(chunk)
                 buffer_frames += chunk.shape[0]
@@ -530,8 +615,21 @@ def main():
                 size = max(5, size)
 
                 now = time.time()
+                det_color = "#00ffff" if model_detected else "#ffaa00"
+                det_elev = cls.get("elevation", "same") if (cls and model_detected) else "same"
                 with detections_lock:
-                    detections.append({"pos": vector, "size": size, "time": now})
+                    detections.append({
+                        "pos": vector,
+                        "size": size,
+                        "time": now,
+                        "color": det_color,
+                        "elevation": det_elev,
+                        "angle": angle,
+                    })
+                try:
+                    flash_queue.put_nowait({"angle": angle, "color": det_color})
+                except queue.Full:
+                    pass
 
                 safe_line = format_detection(cls, angle, combined_energy)
                 try:
@@ -554,13 +652,69 @@ def main():
                 ]
 
                 if detections:
-                    xs = [d["pos"][0] for d in detections]
-                    ys = [d["pos"][1] for d in detections]
-                    sizes = [d["size"] for d in detections]
+                    xs     = [d["pos"][0]   for d in detections]
+                    ys     = [d["pos"][1]   for d in detections]
+                    sizes  = [d["size"]     for d in detections]
+                    colors = [d["color"]    for d in detections]
                     scatter.set_offsets(np.c_[xs, ys])
                     scatter.set_sizes(sizes)
+                    scatter.set_facecolor(colors)
                 else:
                     scatter.set_offsets(np.empty((0, 2)))
+                    scatter.set_sizes([])
+
+                # Snapshot for elevation annotations (under lock to avoid race)
+                det_snapshot = [(d["pos"], d.get("elevation", "same")) for d in detections]
+
+            # --- Sector flash patches (new detections → Wedge that fades out) ---
+            while not flash_queue.empty():
+                try:
+                    req = flash_queue.get_nowait()
+                    # Radar angle 0=front, positive=right → matplotlib angle 90=top, CCW+
+                    mpl_theta = 90.0 - req["angle"]
+                    wedge = Wedge(
+                        center=(0, 0), r=1.05,
+                        theta1=mpl_theta - 20, theta2=mpl_theta + 20,
+                        alpha=0.35, color=req["color"], linewidth=0,
+                    )
+                    ax.add_patch(wedge)
+                    flash_patches.append({"patch": wedge, "alpha": 0.35})
+                except queue.Empty:
+                    break
+
+            # Decay flash patches; remove finished ones
+            still_alive = []
+            for fp in flash_patches:
+                fp["alpha"] = max(0.0, fp["alpha"] - 0.025)
+                fp["patch"].set_alpha(fp["alpha"])
+                if fp["alpha"] > 0.01:
+                    still_alive.append(fp)
+                else:
+                    try:
+                        fp["patch"].remove()
+                    except Exception:
+                        pass
+            flash_patches[:] = still_alive
+
+            # --- Elevation annotations (↑ ↓ =) above each dot ---
+            for ann in elev_annotations:
+                try:
+                    ann.remove()
+                except Exception:
+                    pass
+            elev_annotations.clear()
+
+            for pos, elev in det_snapshot:
+                elev_lower = elev.lower()
+                sym = "↑" if "above" in elev_lower else "↓" if "below" in elev_lower else "="
+                ann = ax.annotate(
+                    sym,
+                    xy=pos,
+                    xytext=(pos[0], pos[1] + 0.1),
+                    fontsize=7, ha="center", va="bottom", color="white",
+                    annotation_clip=False,
+                )
+                elev_annotations.append(ann)
 
             plt.draw()
             plt.pause(0.02)
@@ -569,6 +723,8 @@ def main():
         worker.join(timeout=1)
         classifier.join(timeout=2)
         audio.stop()
+        if audio_out is not None:
+            audio_out.stop()
         plt.close(fig)
         print("Terminated.")
 

@@ -6,7 +6,7 @@ import pickle
 
 import numpy as np
 
-from r6_audio_radar.features import extract_features
+from universal_game_audio_radar.features import extract_features
 
 # Default model directory: <package>/models/
 _DEFAULT_MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
