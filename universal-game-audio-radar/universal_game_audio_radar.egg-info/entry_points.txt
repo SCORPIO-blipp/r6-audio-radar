@@ -1,2 +1,0 @@
-[console_scripts]
-universal-game-audio-radar = universal_game_audio_radar.gui:main
