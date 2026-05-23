@@ -16,3 +16,7 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local / tooling
+.claude/
+Ed4/
