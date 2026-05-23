@@ -13,8 +13,6 @@ import scipy.signal as spsig
 import matplotlib.pyplot as plt
 from matplotlib.patches import Wedge
 import mplcyberpunk
-import librosa
-
 
 # Audio input backend: use WASAPI loopback via pyaudiowpatch (required).
 try:
@@ -268,9 +266,14 @@ if classify_mod is not None:
     try:
         classify_mod.load_models(_MODEL_DIR)
         model_available = True
+        known_classes = list(classify_mod.enc_event.classes_)
+        print(f"Models loaded OK. Event classes: {known_classes}")
     except Exception as e:
         print(f"Warning: could not load models from {_MODEL_DIR}: {e}")
         model_available = False
+
+if not model_available:
+    print("Warning: running in energy-only mode (no ML model).")
 
 
 def classify_chunk(chunk, rate):
@@ -285,9 +288,7 @@ def classify_chunk(chunk, rate):
 
     try:
         mono = np.mean(chunk, axis=1)
-        if rate != 22050:
-            mono = librosa.resample(mono, orig_sr=rate, target_sr=22050)
-        return classify_mod.classify_audio(mono, sr=22050)
+        return classify_mod.classify_audio(mono, sr=rate)
     except Exception as e:
         print(f"Classify chunk failed: {e}")
         return None
@@ -298,7 +299,7 @@ def classify_chunk(chunk, rate):
 # =========================
 def format_detection(cls, angle, combined_energy):
     use_model = cls is not None and cls.get("event") in ("footstep", "footsteps")
-    conf = float(cls.get("confidence", 0.0)) if use_model else min(1.0, combined_energy / 0.05)
+    conf = float(cls.get("confidence", 0.0)) if use_model else min(1.0, combined_energy / 0.002)
     elev = cls.get("elevation", "?") if use_model else "-"
     mat = cls.get("material", "?") if use_model else "-"
     source = "model" if use_model else "energy"
@@ -396,7 +397,7 @@ def main():
         HIGH_ENERGY_WEIGHT = _env_float("UGAR_HIGH_ENERGY_WEIGHT", 0.7)
         MODEL_CONFIDENCE_THRESHOLD = _env_float("UGAR_MODEL_CONFIDENCE_THRESHOLD", 0.3)
 
-        SEGMENT_DURATION = _env_float("UGAR_SEGMENT_DURATION", 0.5)
+        SEGMENT_DURATION = _env_float("UGAR_SEGMENT_DURATION", 0.25)
         SEGMENT_HOP = _env_float("UGAR_SEGMENT_HOP", SEGMENT_DURATION)
 
         # EQ / frequency-boost settings
@@ -567,25 +568,30 @@ def main():
                 weighted_high = energy_high * HIGH_ENERGY_WEIGHT
                 combined_energy = max(weighted_low, weighted_high)
 
-                cls = classify_chunk(segment, rate)
-                model_detected = False
-                if cls is not None:
-                    all_probs = cls.get("all_probs", {})
-                    gunfire_prob = max(
-                        all_probs.get("gunfire", 0.0),
-                        all_probs.get("shooting", 0.0),
-                    )
-                    model_detected = (
-                        cls.get("event") in ("footstep", "footsteps") and
-                        float(cls.get("confidence", 0.0)) >= MODEL_CONFIDENCE_THRESHOLD and
-                        gunfire_prob < 0.3
-                    )
-
-                is_footstep = model_detected or (
+                # Fast energy gate — skip expensive ML on silence
+                is_energy_footstep = (
                     energy_low > LOW_ENERGY_THRESHOLD
                     or energy_high > HIGH_ENERGY_THRESHOLD
                     or combined_energy > ENERGY_THRESHOLD
                 )
+
+                cls = None
+                model_detected = False
+                if is_energy_footstep:
+                    cls = classify_chunk(segment, rate)
+                    if cls is not None:
+                        all_probs = cls.get("all_probs", {})
+                        gunfire_prob = max(
+                            all_probs.get("gunfire", 0.0),
+                            all_probs.get("shooting", 0.0),
+                        )
+                        model_detected = (
+                            cls.get("event") in ("footstep", "footsteps") and
+                            float(cls.get("confidence", 0.0)) >= MODEL_CONFIDENCE_THRESHOLD and
+                            gunfire_prob < 0.3
+                        )
+
+                is_footstep = model_detected or is_energy_footstep
 
                 if classifier_worker.counter % verbose_energy_reports == 0:
                     print(
@@ -595,8 +601,12 @@ def main():
                     )
                     if cls is not None:
                         print(
-                            f"Runner: model event={cls.get('event')} confidence={cls.get('confidence'):.3f}"
+                            f"Runner: model event={cls.get('event')!r} "
+                            f"confidence={cls.get('confidence'):.3f} "
+                            f"all_probs={cls.get('all_probs')}"
                         )
+                    elif is_energy_footstep:
+                        print("Runner: classify_chunk returned None (model unavailable or exception)")
 
                 if not is_footstep:
                     continue
