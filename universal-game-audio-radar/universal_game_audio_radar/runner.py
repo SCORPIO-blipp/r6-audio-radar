@@ -297,9 +297,9 @@ def classify_chunk(chunk, rate):
 # =========================
 # MAIN
 # =========================
-def format_detection(cls, angle, combined_energy):
-    use_model = cls is not None and cls.get("event") in ("footstep", "footsteps")
-    conf = float(cls.get("confidence", 0.0)) if use_model else min(1.0, combined_energy / 0.002)
+def format_detection(cls, angle, combined_energy, model_detected=False):
+    use_model = model_detected and cls is not None
+    conf = float(cls.get("all_probs", {}).get("footstep", cls.get("confidence", 0.0))) if use_model else min(1.0, combined_energy / 0.002)
     elev = cls.get("elevation", "?") if use_model else "-"
     mat = cls.get("material", "?") if use_model else "-"
     source = "model" if use_model else "energy"
@@ -580,27 +580,35 @@ def main():
 
                 cls = None
                 model_detected = False
+                model_suppressed = False
+                footstep_prob = 0.0
+                gunfire_prob = 0.0
                 if is_energy_footstep or FORCE_ML:
                     cls = classify_chunk(segment, rate)
                     if cls is not None:
                         all_probs = cls.get("all_probs", {})
+                        footstep_prob = all_probs.get("footstep", 0.0)
                         gunfire_prob = max(
                             all_probs.get("gunfire", 0.0),
                             all_probs.get("shooting", 0.0),
                         )
                         model_detected = (
-                            cls.get("event") in ("footstep", "footsteps") and
-                            float(cls.get("confidence", 0.0)) >= MODEL_CONFIDENCE_THRESHOLD and
+                            footstep_prob >= MODEL_CONFIDENCE_THRESHOLD and
                             gunfire_prob < 0.5
                         )
+                        # Model confident it's NOT a footstep — suppress energy fallback
+                        model_suppressed = (
+                            not model_detected and
+                            float(cls.get("confidence", 0.0)) >= 0.4
+                        )
 
-                is_footstep = model_detected or is_energy_footstep
+                is_footstep = model_detected or (is_energy_footstep and not model_suppressed)
 
-                # When energy fires but model didn't agree, log what the model actually said.
                 if is_energy_footstep and not model_detected and cls is not None:
+                    action = "suppress" if model_suppressed else "pass"
                     print(
                         f"Runner: [model→{cls.get('event')} {float(cls.get('confidence', 0)):.0%}"
-                        f" gunfire={gunfire_prob:.0%}]"
+                        f" gunfire={gunfire_prob:.0%} → {action}]"
                     )
 
                 if classifier_worker.counter % verbose_energy_reports == 0:
@@ -621,10 +629,10 @@ def main():
                 if not is_footstep:
                     continue
 
-                if cls is None or cls.get("event") not in ("footstep", "footsteps"):
-                    model_conf = min(1.0, combined_energy / 0.002)
+                if model_detected:
+                    model_conf = footstep_prob
                 else:
-                    model_conf = float(cls.get("confidence", 0.0))
+                    model_conf = min(1.0, combined_energy / 0.002)
 
                 if segment.shape[1] >= 2:
                     angle, vector, direction_conf = estimate_direction(segment, lfe_filter_dir)
@@ -651,7 +659,7 @@ def main():
                 except queue.Full:
                     pass
 
-                safe_line = format_detection(cls, angle, combined_energy)
+                safe_line = format_detection(cls, angle, combined_energy, model_detected=model_detected)
                 try:
                     print(safe_line)
                 except UnicodeEncodeError:
