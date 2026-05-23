@@ -396,6 +396,7 @@ def main():
         LOW_ENERGY_WEIGHT = _env_float("UGAR_LOW_ENERGY_WEIGHT", 1.4)
         HIGH_ENERGY_WEIGHT = _env_float("UGAR_HIGH_ENERGY_WEIGHT", 0.7)
         MODEL_CONFIDENCE_THRESHOLD = _env_float("UGAR_MODEL_CONFIDENCE_THRESHOLD", 0.15)
+        FORCE_ML = os.getenv("UGAR_FORCE_ML", "0") == "1"
 
         SEGMENT_DURATION = _env_float("UGAR_SEGMENT_DURATION", 0.25)
         SEGMENT_HOP = _env_float("UGAR_SEGMENT_HOP", SEGMENT_DURATION)
@@ -577,7 +578,7 @@ def main():
 
                 cls = None
                 model_detected = False
-                if is_energy_footstep:
+                if is_energy_footstep or FORCE_ML:
                     cls = classify_chunk(segment, rate)
                     if cls is not None:
                         all_probs = cls.get("all_probs", {})

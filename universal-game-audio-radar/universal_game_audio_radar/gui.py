@@ -140,6 +140,12 @@ class AudioGUI:
             main_frame, text="(DEV) Raw Data",
             variable=self.pref4, command=self._on_raw_toggle,
         ).pack(anchor="w")
+        self.force_ml_var = tk.BooleanVar()
+        ttk.Checkbutton(
+            main_frame,
+            text="Always run ML model on every chunk (bypasses energy gate)",
+            variable=self.force_ml_var,
+        ).pack(anchor="w")
 
         # =========================
         # Buttons
@@ -379,6 +385,9 @@ class AudioGUI:
             selected = self.eq_device_var.get()
             if selected and ":" in selected:
                 env["UGAR_EQ_OUTPUT_DEVICE"] = selected.split(":")[0].strip()
+
+        if self.force_ml_var.get():
+            env["UGAR_FORCE_ML"] = "1"
 
         popen_kwargs = dict(
             stdout=subprocess.PIPE,
