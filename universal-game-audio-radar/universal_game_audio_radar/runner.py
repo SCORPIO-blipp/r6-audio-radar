@@ -397,6 +397,8 @@ def main():
         HIGH_ENERGY_WEIGHT = _env_float("UGAR_HIGH_ENERGY_WEIGHT", 0.7)
         MODEL_CONFIDENCE_THRESHOLD = _env_float("UGAR_MODEL_CONFIDENCE_THRESHOLD", 0.15)
         FORCE_ML = os.getenv("UGAR_FORCE_ML", "0") == "1"
+        if FORCE_ML:
+            print("Runner: FORCE_ML=ON — model runs on every segment regardless of energy.")
 
         SEGMENT_DURATION = _env_float("UGAR_SEGMENT_DURATION", 0.25)
         SEGMENT_HOP = _env_float("UGAR_SEGMENT_HOP", SEGMENT_DURATION)
@@ -593,6 +595,13 @@ def main():
                         )
 
                 is_footstep = model_detected or is_energy_footstep
+
+                # When energy fires but model didn't agree, log what the model actually said.
+                if is_energy_footstep and not model_detected and cls is not None:
+                    print(
+                        f"Runner: [model→{cls.get('event')} {float(cls.get('confidence', 0)):.0%}"
+                        f" gunfire={gunfire_prob:.0%}]"
+                    )
 
                 if classifier_worker.counter % verbose_energy_reports == 0:
                     print(

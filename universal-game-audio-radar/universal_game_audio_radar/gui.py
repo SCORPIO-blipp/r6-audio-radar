@@ -21,6 +21,14 @@ _PRESETS = {
     "medium": 0.00075,
     "high":   0.0005,
 }
+# These actually control detection frequency — mapped to UGAR_LOW_ENERGY_THRESHOLD.
+# The combined ENERGY_THRESHOLD above is rarely the binding gate; the bandpass
+# threshold fires first and at much lower energy.
+_BANDPASS_PRESETS = {
+    "low":    0.0005,   # only strong footsteps
+    "medium": 0.0002,   # moderate — filters most ambient noise
+    "high":   0.00005,  # very sensitive (original hardcoded default)
+}
 _ADVANCED_MIN = 0.0005
 _ADVANCED_MAX = 0.001
 
@@ -378,6 +386,15 @@ class AudioGUI:
         env["UGAR_ENERGY_THRESHOLD"] = str(threshold)
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUNBUFFERED"] = "1"
+
+        # Wire sensitivity preset to the bandpass threshold that actually gates detection.
+        # In advanced mode leave the defaults so the user's custom value applies only to
+        # the combined threshold (UGAR_ENERGY_THRESHOLD).
+        if not self.advanced_var.get():
+            preset_key = self.threshold_preset.get()
+            low_bp = _BANDPASS_PRESETS[preset_key]
+            env["UGAR_LOW_ENERGY_THRESHOLD"] = str(low_bp)
+            env["UGAR_HIGH_ENERGY_THRESHOLD"] = str(low_bp * 2)
 
         if self.eq_enabled.get():
             env["UGAR_EQ_ENABLED"] = "1"
