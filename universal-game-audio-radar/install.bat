@@ -5,7 +5,7 @@ echo.
 python --version >nul 2>&1
 if errorlevel 1 (
     echo ERROR: Python not found.
-    echo Install Python 3.10 or newer from https://python.org
+    echo Install Python 3.11 or newer from https://python.org
     echo Make sure to check "Add Python to PATH" during install.
     pause
     exit /b 1
