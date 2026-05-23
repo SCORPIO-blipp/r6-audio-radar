@@ -395,7 +395,7 @@ def main():
         HIGH_ENERGY_THRESHOLD = _env_float("UGAR_HIGH_ENERGY_THRESHOLD", 0.0001)
         LOW_ENERGY_WEIGHT = _env_float("UGAR_LOW_ENERGY_WEIGHT", 1.4)
         HIGH_ENERGY_WEIGHT = _env_float("UGAR_HIGH_ENERGY_WEIGHT", 0.7)
-        MODEL_CONFIDENCE_THRESHOLD = _env_float("UGAR_MODEL_CONFIDENCE_THRESHOLD", 0.3)
+        MODEL_CONFIDENCE_THRESHOLD = _env_float("UGAR_MODEL_CONFIDENCE_THRESHOLD", 0.15)
 
         SEGMENT_DURATION = _env_float("UGAR_SEGMENT_DURATION", 0.25)
         SEGMENT_HOP = _env_float("UGAR_SEGMENT_HOP", SEGMENT_DURATION)
@@ -588,7 +588,7 @@ def main():
                         model_detected = (
                             cls.get("event") in ("footstep", "footsteps") and
                             float(cls.get("confidence", 0.0)) >= MODEL_CONFIDENCE_THRESHOLD and
-                            gunfire_prob < 0.3
+                            gunfire_prob < 0.5
                         )
 
                 is_footstep = model_detected or is_energy_footstep
@@ -612,7 +612,7 @@ def main():
                     continue
 
                 if cls is None or cls.get("event") not in ("footstep", "footsteps"):
-                    model_conf = min(1.0, combined_energy / 0.05)
+                    model_conf = min(1.0, combined_energy / 0.002)
                 else:
                     model_conf = float(cls.get("confidence", 0.0))
 
