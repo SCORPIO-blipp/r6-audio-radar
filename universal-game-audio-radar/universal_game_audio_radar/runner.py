@@ -232,9 +232,9 @@ def estimate_direction(chunk, lfe_filter):
     horizontal_ratio = front_ratio * 0.8 + rear_ratio * 0.2
 
     # Angle in degrees: -90 (left) to +90 (right)
-    # Square root curve spreads detections away from centre
+    # Square root curve gives moderate spread — 10% L-R imbalance → ~28°
     sign = np.sign(horizontal_ratio)
-    angle = max(-90.0, min(90.0, sign * (abs(horizontal_ratio) ** 0.25) * 90.0))
+    angle = max(-90.0, min(90.0, sign * (abs(horizontal_ratio) ** 0.5) * 90.0))
     angle_rad = np.deg2rad(angle)
 
     # Always return a unit direction vector; size should be based on confidence/energy
@@ -401,7 +401,7 @@ def main():
             print("Runner: FORCE_ML=ON — model runs on every segment regardless of energy.")
 
         SEGMENT_DURATION = _env_float("UGAR_SEGMENT_DURATION", 0.25)
-        SEGMENT_HOP = _env_float("UGAR_SEGMENT_HOP", SEGMENT_DURATION)
+        SEGMENT_HOP = _env_float("UGAR_SEGMENT_HOP", SEGMENT_DURATION * 0.5)
 
         # EQ / frequency-boost settings
         EQ_ENABLED = os.getenv("UGAR_EQ_ENABLED", "0") == "1"
